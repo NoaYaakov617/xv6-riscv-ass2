@@ -50,10 +50,30 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
+enum kthread_state { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
+// Per-CPU state.
+struct cpu {
+  struct kthread *kthread;          // The process running on this cpu, or null.
+  struct context context;     // swtch() here to enter scheduler().
+  int noff;                   // Depth of push_off() nesting.
+  int intena;                 // Were interrupts enabled before push_off()?
+};
+
+extern struct cpu cpus[NCPU];
+
+
 struct kthread
 {
-
+  struct spinlock tlock;
+  enum kthread_state tstate;
+  void *tchan;
+  int tkilled; 
+  int txstate; 
+  int tpid;
+  struct proc* pcb; // pointer to the pcb that belongs to
   uint64 kstack;                // Virtual address of kernel stack
-
   struct trapframe *trapframe;  // data page for trampoline.S
+  struct context context;
+  
 };

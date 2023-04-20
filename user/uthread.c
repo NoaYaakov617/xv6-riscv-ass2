@@ -38,7 +38,7 @@ void uthread_yield(){
                 max_priority_counter = 1;
 
             }
-            else if (curr_thread->priority = max_priority)
+            else if (curr_thread->priority == max_priority)
             {
                 max_priority_counter++;
             }    
@@ -98,14 +98,41 @@ void uthread_exit(){
 
 
 int uthread_start_all(){
+    struct uthread *t;
     if(on == 0){
         on = 1;
+        for (t = uthreads_table; t < &uthreads_table[MAX_UTHREADS]; t++)
+        {
+            t->state = FREE;
+        }
+
+    
+    struct uthread *curr_thread;
+    struct uthread *max_thread = uthreads_table;
+    enum sched_priority max_priority = max_thread->priority;
+    for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
+    {
+        if(curr_thread->state == RUNNABLE){
+            if(curr_thread->priority > max_priority){
+                max_priority = curr_thread->priority;
+                max_thread = curr_thread;
+            }
+   
+        }
+
+    }
+    current_thread = max_thread;
+    current_thread->state = RUNNING;
+    uswtch(&????,&current_thread->context);
+
 
 
     }
+
     else{
         return -1;
     }
+
 
 }
 enum sched_priority uthread_set_priority(enum sched_priority priority){
