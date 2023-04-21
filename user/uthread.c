@@ -1,4 +1,5 @@
 #include "uthread.h"
+#include "user.h"
 struct uthread uthreads_table [MAX_UTHREADS];
 struct uthread *current_thread;
 int on = 0;
@@ -13,8 +14,8 @@ int uthread_create(void (*start_func)(), enum sched_priority priority){
             if(t->ustack == 0){
                 return -1;
             }
-            t->context.sp = (uint)t->ustack + STACK_SIZE;
-            t->context.ra = start_func;
+            t->context.sp = (uint64)t->ustack + STACK_SIZE;
+            t->context.ra = (uint64)start_func;
             t->priority = priority;
             t->state = RUNNABLE;
             return 0;
@@ -56,7 +57,7 @@ void uthread_yield(){
 
         }
     
-    current_thread = RUNNABLE;
+    current_thread->state = RUNNABLE;
     max_thread->state = RUNNING;
     uswtch(&current_thread->context,&max_thread->context);
 
@@ -79,7 +80,7 @@ void uthread_exit(){
         exit(0);
     }
 
-    struct uthread *curr_thread;
+  
     struct uthread *max_thread = uthreads_table;
     enum sched_priority max_priority = max_thread->priority;
     for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
@@ -98,15 +99,10 @@ void uthread_exit(){
 
 
 int uthread_start_all(){
-    struct uthread *t;
+   
     if(on == 0){
         on = 1;
-        for (t = uthreads_table; t < &uthreads_table[MAX_UTHREADS]; t++)
-        {
-            t->state = FREE;
-        }
-
-    
+ 
     struct uthread *curr_thread;
     struct uthread *max_thread = uthreads_table;
     enum sched_priority max_priority = max_thread->priority;
@@ -121,13 +117,14 @@ int uthread_start_all(){
         }
 
     }
+
     current_thread = max_thread;
     current_thread->state = RUNNING;
-    uswtch(&????,&current_thread->context);
-
-
+    uswtch(&current_thread->context,&current_thread->context);
+    return 0;
 
     }
+    
 
     else{
         return -1;
