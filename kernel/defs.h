@@ -111,8 +111,8 @@ void            forkret(void);
 // kthread.c
 void                kthreadinit(struct proc *);
 struct kthread*     mykthread();
-int                 alloctpid();
-struct kthread*     allockthread(void);
+int                 alloctpid(struct proc *);
+struct kthread*     allockthread(struct proc *);
 void                freekthread(struct kthread *);
 struct trapframe*   get_kthread_trapframe(struct proc *, struct kthread *);
 

@@ -51,6 +51,7 @@ proc_mapstacks(pagetable_t kpgtbl)
 void
 procinit(void)
 {
+  
   struct proc *p;
   
   initlock(&pid_lock, "nextpid");
@@ -59,7 +60,9 @@ procinit(void)
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       kthreadinit(p);
+ 
   }
+  
 }
 
 // Must be called with interrupts disabled,
@@ -127,10 +130,14 @@ allocproc(void)
   return 0;
 
 found:
+
   p->pid = allocpid();
+ 
   p->state = USED;
   p->tcounter = 1;
-  allockthread();
+  
+  allockthread(p);
+ 
 
 
   // Allocate a trapframe page.
@@ -147,6 +154,12 @@ found:
     release(&p->lock);
     return 0;
   }
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&p->kthread->context, 0, sizeof(p->kthread->context));
+  p->kthread->context.ra = (uint64)forkret;
+  p->kthread->context.sp = p->kthread->kstack + PGSIZE;
 
 
 
@@ -240,9 +253,12 @@ uchar initcode[] = {
 void
 userinit(void)
 {
+ 
+  
   struct proc *p;
 
   p = allocproc();
+  
   initproc = p;
   
   // allocate one user page and copy initcode's instructions
@@ -251,8 +267,11 @@ userinit(void)
   p->sz = PGSIZE;
 
   // prepare for the very first "return" from kernel to user.
-  p->kthread[0].trapframe->epc = 0;      // user program counter
-  p->kthread[0].trapframe->sp = PGSIZE;  // user stack pointer
+  
+  
+  p->kthread->trapframe->epc = 0;      // user program counter
+
+  p->kthread->trapframe->sp = PGSIZE;  // user stack pointer
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -261,6 +280,7 @@ userinit(void)
   p->kthread[0].tstate = RUNNABLE;
   release(&p->kthread->tlock);
   release(&p->lock);
+  
 }
 
 // Grow or shrink user memory by n bytes.
@@ -470,30 +490,41 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+ 
   
   c->kthread = 0;
+ 
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
-
+   
+    //intr_on();
+   
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+      
 
       if(p->kthread->tstate == RUNNABLE) {
+        
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         //p->state = RUNNING;
         acquire(&p->kthread->tlock);
+       
         p->kthread[0].tstate = RUNNING;
+        
         release(&p->kthread->tlock);
         //c->proc = p;
-        *c->kthread = p->kthread[0];
+       
+        c->kthread = &p->kthread[0];
+       printf("%p\n",&p->kthread[0].context);
         swtch(&c->context, &p->kthread[0].context);
+        printf("after swtch\n");
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->kthread = 0;
+       
       }
       release(&p->lock);
     }

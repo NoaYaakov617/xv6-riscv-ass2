@@ -13,19 +13,26 @@ extern struct spinlock wait_lock;
 
 void kthreadinit(struct proc *p)
 {
+  
+  
   acquire(&wait_lock);
-  acquire(&myproc()->lock);
+  
+  acquire(&p->lock);
  
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     initlock(&kt->tlock, "thread_lock");
+  
     kt->tstate = TUNUSED;
     // WARNING: Don't change this line!
     // get the pointer to the kernel stack of the kthread
     kt->kstack = KSTACK((int)((p - proc) * NKT + (kt - p->kthread)));
+    
   }
-  release(&myproc()->lock);
+ 
+  release(&p->lock);
   release(&wait_lock);
+  
   
 }
 
@@ -43,9 +50,8 @@ struct kthread *mykthread()
 
 }
 int
-  alloctpid(){
+  alloctpid(struct proc *p){
     int tpid;
-    struct proc *p = myproc();
     acquire(&p->counter_lock);
     tpid = p->tcounter ;
     p->tcounter++;
@@ -55,9 +61,10 @@ int
 
 
 struct kthread*
-allockthread(void){
+allockthread(struct proc *p){
+ 
   struct kthread *kt ;
-  struct proc *p = myproc();
+  
  
 
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
@@ -75,9 +82,17 @@ allockthread(void){
    
   return 0;  
   found:
-  kt->tpid = alloctpid();
+  
+  kt->tpid = alloctpid(p);
+  
   kt->tstate = TUSED;
-  kt->trapframe = get_kthread_trapframe(p, kt);
+
+  //kt->trapframe = get_kthread_trapframe(p, kt);
+  if((kt->trapframe = (struct trapframe *)kalloc()) == 0){
+    release(&kt->tlock);
+    return 0;
+  }
+  
 
   memset(&kt->context, 0, sizeof(kt->context));
   kt->context.ra = (uint64)forkret;
@@ -85,6 +100,7 @@ allockthread(void){
 
 
   return kt;
+
 
   }
 
