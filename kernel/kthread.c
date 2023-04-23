@@ -123,6 +123,35 @@ struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
 
 // MultiThreads
 int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
+  int i, ktid;
+  struct kthread *nkt;
+  struct proc *p = myproc();
+  struct kthread *kt = mykthread();
+
+  // Allocate kthread
+  if(nkt = allockthread(p) == 0){
+    return -1;
+  }
+  if(start_func == 0 || stack == 0){
+    return -1;
+  }
+  
+  nkt->context = mykthread()->context;
+  nkt->kstack = stack;
+  nkt->trapframe = get_kthread_trapframe(&p,&nkt);
+  nkt->trapframe->a0 = 0; // ??????????
+  nkt->trapframe->epc = start_func;
+  nkt->trapframe->sp = stack + stack_size;
+  ktid = kt->tpid;
+
+  release(&nkt->tlock);
+
+
+  acquire(&nkt->tlock);
+  nkt->tstate = RUNNABLE;
+  release(&nkt->tlock);
+
+  return ktid;
 
 }
 
