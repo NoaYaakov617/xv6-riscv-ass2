@@ -23,6 +23,15 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 
+//multithreads
+int kthread_create(void);
+int kthread_id(void);
+int kthread_kill(void);
+int kthread_exit(void);
+int kthread_join(void);
+
+
+
 // ulib.c
 int stat(const char*, struct stat*);
 char* strcpy(char*, const char*);

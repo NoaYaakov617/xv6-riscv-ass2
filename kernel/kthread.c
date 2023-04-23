@@ -120,3 +120,81 @@ struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
 }
 
 
+
+// MultiThreads
+int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
+
+}
+
+int kthread_id(void){
+  return mykthread()->tpid;
+}
+
+int kthread_kill(int ktid){
+
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    
+    if(kt->tpid == ktid){
+      acquire(&kt->tlock);
+      kt->tkilled = 1;
+      if(kt->tstate == SLEEPING){
+        kt->tstate = RUNNABLE;
+      }
+      release(&kt->tlock);
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+    return -1;
+  }
+
+  
+
+
+
+}
+void kthread_exit(int status){
+  struct kthread *kt = mykthread();
+  acquire(&kt->tlock);
+  kt->txstate = status;
+  kt->tstate = TZOMBIE;
+  release(&kt->tlock);
+}
+
+int kthread_join(int ktid, int *status){
+  struct proc *p = myproc();
+  
+  acquire(&wait_lock);
+  for(;;){
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    if(kt->tpid == ktid){
+      acquire(&kt->tlock);
+      if(kt->tstate == TZOMBIE){
+        //if(kt->txstate != NULL){ 
+          if(status != 0 && copyout(p->pagetable, status, (char *)&kt->txstate,
+                                  sizeof(kt->txstate)) < 0) {
+            release(&kt->tlock);
+            release(&wait_lock);
+            return -1;
+            }
+          ///   freeproc(pp); ?????/
+          release(&kt->tlock);
+          release(&wait_lock);
+          return 0;
+        }
+        release(&kt->tlock);
+    }
+  
+  }
+  }
+             
+}
+
+      
+ 
+
+
