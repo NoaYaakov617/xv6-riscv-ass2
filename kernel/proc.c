@@ -542,9 +542,13 @@ sched(void)
 {
   int intena;
   struct proc *p = myproc();
+  struct kthread *t = &p->kthread[0];
 
   if(!holding(&p->lock))
     panic("sched p->lock");
+    //check also is the thread lock is acquired
+  if(!holding(&t->tlock))
+    panic("sched t->tlock");
   if(mycpu()->noff != 1)
     panic("sched locks");
   if(p->kthread[0].tstate == RUNNING)
@@ -577,6 +581,8 @@ forkret(void)
 {
   static int first = 1;
 
+  // Still holding ktheat->tlock from scheduler.
+  release(&myproc()->kthread->tlock);
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
