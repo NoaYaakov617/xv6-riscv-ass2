@@ -152,7 +152,8 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == USED)
+  //the codition checked here is related to the running thread and not only process
+  if(which_dev == 2 && myproc() != 0 && myproc()->kthread != 0 && myproc()->kthread->tstate == RUNNING)
     yield();
 
   // the yield() may have caused some traps to occur,

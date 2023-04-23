@@ -135,9 +135,6 @@ found:
  
   p->state = USED;
   p->tcounter = 1;
-  
-  allockthread(p);
- 
 
 
   // Allocate a trapframe page.
@@ -145,7 +142,7 @@ found:
     freeproc(p);
     release(&p->lock);
     return 0;
-  }
+  } 
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -155,13 +152,9 @@ found:
     return 0;
   }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
-  memset(&p->kthread->context, 0, sizeof(p->kthread->context));
-  p->kthread->context.ra = (uint64)forkret;
-  p->kthread->context.sp = p->kthread->kstack + PGSIZE;
-
-
+  
+//the allocthread method allocates the value to the registers do this allocation was deleted from here
+   allockthread(p);
 
   return p;
 }
@@ -329,9 +322,9 @@ fork(void)
 
 // do we need to acquire the wait_lock???????
   acquire(&kt->tlock);
-  np->kthread[0] = *kt;
+ np->kthread[0] = *kt;
   release(&kt->tlock);
- 
+
   // copy saved user registers.
   *(np->kthread[0].trapframe) = *(kt->trapframe);
 
@@ -490,18 +483,20 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
- 
+  
   
   c->kthread = 0;
  
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
    
-    //intr_on();
-   
+   printf("before init_on\n");
+    intr_on();
+    printf("after init_on\n");
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      
+
 
       if(p->kthread->tstate == RUNNABLE) {
         
@@ -517,7 +512,11 @@ scheduler(void)
         //c->proc = p;
        
         c->kthread = &p->kthread[0];
-       printf("%p\n",&p->kthread[0].context);
+       printf("before swtch\n");
+       printf("r ra is %d\n",&p->kthread[0].context.ra);
+       printf("r sp is %d\n",&p->kthread[0].context.sp);
+        printf("c ra is %d\n",&c->context.ra);
+       printf("c sp is %d\n",&c->context.sp);
         swtch(&c->context, &p->kthread[0].context);
         printf("after swtch\n");
 
@@ -611,6 +610,7 @@ sleep(void *chan, struct spinlock *lk)
 
   // Go to sleep.
   //p->chan = chan;
+  acquire(&p->kthread[0].tlock);
   p->kthread[0].tchan = chan;
   p->kthread[0].tstate = SLEEPING;
 
@@ -620,6 +620,7 @@ sleep(void *chan, struct spinlock *lk)
   p->kthread[0].tchan = 0;
 
   // Reacquire original lock.
+  release(&p->kthread[0].tlock);
   release(&p->lock);
   acquire(lk);
 }

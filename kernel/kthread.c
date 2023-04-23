@@ -86,13 +86,9 @@ allockthread(struct proc *p){
   kt->tpid = alloctpid(p);
   
   kt->tstate = TUSED;
-
-  //kt->trapframe = get_kthread_trapframe(p, kt);
-  if((kt->trapframe = (struct trapframe *)kalloc()) == 0){
-    release(&kt->tlock);
-    return 0;
-  }
   
+//feching the trapframe using the required method. the base trapframe of the process should be set before this fetch
+  kt->trapframe = get_kthread_trapframe(p, kt);
 
   memset(&kt->context, 0, sizeof(kt->context));
   kt->context.ra = (uint64)forkret;
