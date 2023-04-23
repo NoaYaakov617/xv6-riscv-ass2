@@ -408,17 +408,26 @@ exit(int status)
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     acquire(&kt->tlock);
-    kt->tstate = TZOMBIE;
+    if(kt != mykthread())
+      kt->tstate = TZOMBIE;
     release(&kt->tlock);
   }
 
   p->xstate = status;
   p->state = ZOMBIE;
 
+
+
+  acquire(&mykthread()->tlock);
+  mykthread()->tstate = ZOMBIE;
+  release(&mykthread()->tlock);
   release(&wait_lock);
 
   // Jump into the scheduler, never to return.
+  
+
   sched();
+
   panic("zombie exit");
 }
 
