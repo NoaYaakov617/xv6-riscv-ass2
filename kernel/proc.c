@@ -89,9 +89,12 @@ mycpu(void)
 struct proc*
 myproc(void)
 {
+ // printf("before muproc\n");
   push_off();
   struct cpu *c = mycpu();
-  struct proc *p = c->kthread->pcb; // ????
+  struct proc *p = 0;
+  if (c->kthread != 0){
+    return c->kthread->pcb; }
   pop_off();
   return p;
 }
@@ -151,8 +154,7 @@ found:
     release(&p->lock);
     return 0;
   }
-
-  
+      
 //the allocthread method allocates the value to the registers do this allocation was deleted from here
    allockthread(p);
 
@@ -484,49 +486,41 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   
-  
   c->kthread = 0;
  
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
    
-   printf("before init_on\n");
+   //printf("before init_on\n");
     intr_on();
     printf("after init_on\n");
-
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-
-
-      if(p->kthread->tstate == RUNNABLE) {
-        
+      if (&p->state ==  UNUSED){
+        release(&p->lock);
+        continue;
+      }
+      else{
+        release(&p->lock);
+        if(p->kthread->tstate == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        //p->state = RUNNING;
-        acquire(&p->kthread->tlock);
-       
-        p->kthread[0].tstate = RUNNING;
-        
-        release(&p->kthread->tlock);
-        //c->proc = p;
-       
-        c->kthread = &p->kthread[0];
-       printf("before swtch\n");
-       printf("r ra is %d\n",&p->kthread[0].context.ra);
-       printf("r sp is %d\n",&p->kthread[0].context.sp);
-        printf("c ra is %d\n",&c->context.ra);
-       printf("c sp is %d\n",&c->context.sp);
-        swtch(&c->context, &p->kthread[0].context);
-        printf("after swtch\n");
+          acquire(&p->kthread->tlock);
+          p->kthread[0].tstate = RUNNING;
+          c->kthread = &p->kthread[0];
+          printf("before swtch\n");
+          swtch(&c->context, &p->kthread[0].context);
+          printf("after swtch\n");
+          release(&p->kthread->tlock);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        c->kthread = 0;
+          c->kthread = 0;
        
       }
-      release(&p->lock);
     }
+  }
   }
 }
 
@@ -582,7 +576,7 @@ forkret(void)
   static int first = 1;
 
   // Still holding ktheat->tlock from scheduler.
-  release(&myproc()->kthread->tlock);
+  release(&mykthread()->tlock);
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
@@ -611,15 +605,14 @@ sleep(void *chan, struct spinlock *lk)
   // (wakeup locks p->lock),
   // so it's okay to release lk.
 
-  acquire(&p->lock);  //DOC: sleeplock1
+  acquire(&p->kthread[0].tlock);
+  p->kthread[0].tchan = chan;
+  p->kthread[0].tstate = SLEEPING;
   release(lk);
 
   // Go to sleep.
   //p->chan = chan;
-  acquire(&p->kthread[0].tlock);
-  p->kthread[0].tchan = chan;
-  p->kthread[0].tstate = SLEEPING;
-
+ 
   sched();
 
   // Tidy up.
@@ -627,7 +620,6 @@ sleep(void *chan, struct spinlock *lk)
 
   // Reacquire original lock.
   release(&p->kthread[0].tlock);
-  release(&p->lock);
   acquire(lk);
 }
 
@@ -637,7 +629,6 @@ void
 wakeup(void *chan)
 {
   struct proc *p;
-
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
       acquire(&p->lock);

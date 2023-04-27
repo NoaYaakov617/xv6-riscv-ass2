@@ -38,15 +38,11 @@ void kthreadinit(struct proc *p)
 
 struct kthread *mykthread()
 {
-  
-  struct proc *p = myproc();
-  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
-  {
-    if(kt->tstate == RUNNING){
-      return kt;
-    }
-  }
-  return 0;
+  push_off();
+  struct cpu *c = mycpu();
+  struct kthread *kt = c->kthread;
+  pop_off();
+  return kt;
 
 }
 int
@@ -64,8 +60,6 @@ struct kthread*
 allockthread(struct proc *p){
  
   struct kthread *kt ;
-  
- 
 
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
@@ -92,8 +86,7 @@ allockthread(struct proc *p){
 
   memset(&kt->context, 0, sizeof(kt->context));
   kt->context.ra = (uint64)forkret;
-  kt->context.sp = kt->kstack + PGSIZE;
-
+  kt->context.sp = kt->kstack +  PGSIZE; 
 
   return kt;
 
@@ -107,7 +100,6 @@ void
   kt->tchan = 0;
   kt->tkilled = 0;
   kt->txstate = 0;
-  kt->pcb = 0;
   kt->kstack = 0; // do we need to free the stack?
   kt->tstate = TUNUSED;
   // what about the trapframe and the context?
