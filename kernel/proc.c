@@ -90,12 +90,12 @@ struct proc*
 myproc(void)
 {
  // printf("before muproc\n");
-  push_off();
+  //push_off();
   struct cpu *c = mycpu();
   struct proc *p = 0;
   if (c->kthread != 0){
     return c->kthread->pcb; }
-  pop_off();
+  //pop_off();
   return p;
 }
 
@@ -175,7 +175,9 @@ freeproc(struct proc *p)
 
    
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++) { 
+    acquire(&kt->tlock);
     freekthread(kt);
+    release(&kt->tlock);
   } 
   p->pagetable = 0;
   p->sz = 0;
@@ -323,12 +325,17 @@ fork(void)
 
 
 // do we need to acquire the wait_lock???????
-  acquire(&kt->tlock);
- np->kthread[0] = *kt;
-  release(&kt->tlock);
+
+allockthread(np);
+np->kthread[0].pcb = kt->pcb;
+np->kthread[0].context = kt->context;
+np->kthread[0].tchan = kt->tchan;
+
+
 
   // copy saved user registers.
   *(np->kthread[0].trapframe) = *(kt->trapframe);
+
 
   // Cause fork to return 0 in the child.
   np->kthread[0].trapframe->a0 = 0;
@@ -534,6 +541,7 @@ scheduler(void)
 void
 sched(void)
 {
+  printf("in sched\n");
   int intena;
   struct proc *p = myproc();
   struct kthread *t = &p->kthread[0];
@@ -553,19 +561,30 @@ sched(void)
   intena = mycpu()->intena;
   swtch(&p->kthread[0].context, &mycpu()->context);
   mycpu()->intena = intena;
+  printf("end sched\n");
 }
 
 // Give up the CPU for one scheduling round.
 void
 yield(void)
 {
-  struct proc *p = myproc();
-  acquire(&p->lock);
-  acquire(&p->kthread->tlock);
-  p->kthread[0].tstate = RUNNABLE;
+  printf("in yield\n");
+  struct kthread *kt = mykthread();
+  acquire(&kt->tlock);
+  kt->tstate = RUNNABLE;
   sched();
-  release(&p->kthread->tlock);
-  release(&p->lock);
+  release(&kt->tlock);
+  // struct proc *p = myproc();
+  // acquire(&p->lock);
+  // acquire(&p->kthread->tlock);
+  // p->kthread[0].tstate = RUNNABLE;
+  // sched();
+  // release(&p->kthread->tlock);
+  // release(&p->lock);
+printf("end yield\n");
+ 
+  
+  
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -573,14 +592,19 @@ yield(void)
 void
 forkret(void)
 {
+  printf("in forkret\n");
   static int first = 1;
+  
 
   // Still holding ktheat->tlock from scheduler.
   release(&mykthread()->tlock);
+  
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
+  
 
   if (first) {
+    
     // File system initialization must be run in the context of a
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
@@ -589,6 +613,7 @@ forkret(void)
   }
 
   usertrapret();
+  printf("end forkret\n");
 }
 
 // Atomically release lock and sleep on chan.
@@ -596,6 +621,7 @@ forkret(void)
 void
 sleep(void *chan, struct spinlock *lk)
 {
+  printf("in sleep\n");
   struct proc *p = myproc();
   
   // Must acquire p->lock in order to
@@ -621,6 +647,7 @@ sleep(void *chan, struct spinlock *lk)
   // Reacquire original lock.
   release(&p->kthread[0].tlock);
   acquire(lk);
+  printf("in sleep\n");
 }
 
 // Wake up all processes sleeping on chan.
@@ -628,6 +655,7 @@ sleep(void *chan, struct spinlock *lk)
 void
 wakeup(void *chan)
 {
+  printf("in wakeup\n");
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
@@ -640,6 +668,7 @@ wakeup(void *chan)
       release(&p->lock);
     }
   }
+  printf("end wakeup\n");
 }
 
 // Kill the process with the given pid.
@@ -648,6 +677,7 @@ wakeup(void *chan)
 int
 kill(int pid)
 {
+  printf("in kill\n");
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++){
@@ -673,6 +703,7 @@ kill(int pid)
     release(&p->lock);
   }
   return -1;
+  printf("in kill\n");
 }
 
 void
