@@ -95,14 +95,16 @@ allockthread(struct proc *p){
 
 void
  freekthread(struct kthread *kt){
-
+  
   kt->tpid = 0;
+  kt->trapframe = 0;
   kt->tchan = 0;
   kt->tkilled = 0;
   kt->txstate = 0;
-  kt->kstack = 0; // do we need to free the stack?
   kt->tstate = TUNUSED;
-  // what about the trapframe and the context?
+
+ 
+  
 
  }
 
