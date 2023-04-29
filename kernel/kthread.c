@@ -14,16 +14,18 @@ extern struct spinlock wait_lock;
 void kthreadinit(struct proc *p)
 {
   
-  
-  acquire(&wait_lock);
-  
   acquire(&p->lock);
- 
+
+  initlock(&p->counter_lock, "thread_counter_lock");
+
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     initlock(&kt->tlock, "thread_lock");
   
     kt->tstate = TUNUSED;
+
+    kt->pcb = p;
+
     // WARNING: Don't change this line!
     // get the pointer to the kernel stack of the kthread
     kt->kstack = KSTACK((int)((p - proc) * NKT + (kt - p->kthread)));
@@ -31,7 +33,6 @@ void kthreadinit(struct proc *p)
   }
  
   release(&p->lock);
-  release(&wait_lock);
   
   
 }
@@ -49,7 +50,7 @@ int
   alloctpid(struct proc *p){
     int tpid;
     acquire(&p->counter_lock);
-    tpid = p->tcounter ;
+    tpid = p->tcounter;
     p->tcounter++;
     release(&p->counter_lock);
     return tpid;
@@ -102,9 +103,6 @@ void
   kt->tkilled = 0;
   kt->txstate = 0;
   kt->tstate = TUNUSED;
-
- 
-  
 
  }
 

@@ -89,13 +89,10 @@ mycpu(void)
 struct proc*
 myproc(void)
 {
- // printf("before muproc\n");
-  //push_off();
   struct cpu *c = mycpu();
   struct proc *p = 0;
   if (c->kthread != 0){
     return c->kthread->pcb; }
-  //pop_off();
   return p;
 }
 
@@ -155,7 +152,7 @@ found:
     return 0;
   }
       
-//the allocthread method allocates the value to the registers do this allocation was deleted from here
+//the allocthread method allocates the value to the registers so this allocation was deleted from here
    allockthread(p);
 
   return p;
@@ -584,7 +581,6 @@ yield(void)
 printf("end yield\n");
  
   
-  
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -594,14 +590,11 @@ forkret(void)
 {
   printf("in forkret\n");
   static int first = 1;
-  
 
+  //struct proc* p = myproc();
+  
   // Still holding ktheat->tlock from scheduler.
   release(&mykthread()->tlock);
-  
-  // Still holding p->lock from scheduler.
-  release(&myproc()->lock);
-  
 
   if (first) {
     
@@ -609,10 +602,13 @@ forkret(void)
     // regular process (e.g., because it calls sleep), and thus cannot
     // be run from main().
     first = 0;
+    printf("before fsinit\n");
     fsinit(ROOTDEV);
-  }
-
+    printf("after fsinit\n");
+  } 
+  printf("before usertrapt\n");
   usertrapret();
+  printf("after usertrapt\n");
   printf("end forkret\n");
 }
 
@@ -623,6 +619,7 @@ sleep(void *chan, struct spinlock *lk)
 {
   printf("in sleep\n");
   struct proc *p = myproc();
+  struct kthread *kt = mykthread();
   
   // Must acquire p->lock in order to
   // change p->state and then call sched.
@@ -631,9 +628,14 @@ sleep(void *chan, struct spinlock *lk)
   // (wakeup locks p->lock),
   // so it's okay to release lk.
 
-  acquire(&p->kthread[0].tlock);
-  p->kthread[0].tchan = chan;
-  p->kthread[0].tstate = SLEEPING;
+  
+  if ( p != 0){
+    acquire(&p ->lock);
+  }
+
+  acquire(&kt->tlock);
+  kt->tchan = chan;
+  kt->tstate = SLEEPING;
   release(lk);
 
   // Go to sleep.
@@ -642,10 +644,10 @@ sleep(void *chan, struct spinlock *lk)
   sched();
 
   // Tidy up.
-  p->kthread[0].tchan = 0;
+  kt->tchan = 0;
 
   // Reacquire original lock.
-  release(&p->kthread[0].tlock);
+  release(&kt->tlock);
   acquire(lk);
   printf("in sleep\n");
 }
