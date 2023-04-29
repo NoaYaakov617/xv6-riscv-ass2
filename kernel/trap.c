@@ -89,7 +89,7 @@ usertrap(void)
 void
 usertrapret(void)
 {
-  printf("in usertrapret\n");
+ 
   struct proc *p = myproc();
   struct kthread *kt = mykthread();
 
@@ -129,7 +129,7 @@ usertrapret(void)
   // and switches to user mode with sret.
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
   ((void (*)(uint64, uint64))trampoline_userret)(TRAPFRAME((uint)(kt - p->kthread)), satp);
-  printf("end usertrapret\n");
+
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,
