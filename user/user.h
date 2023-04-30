@@ -24,12 +24,11 @@ int sleep(int);
 int uptime(void);
 
 //multithreads
-int kthread_create(void);
+int kthread_create( void *(*start_func)(), void *stack, uint stack_size);
 int kthread_id(void);
-int kthread_kill(void);
-int kthread_exit(void);
-int kthread_join(void);
-
+int kthread_kill(int);
+void kthread_exit(int);
+int  kthread_join(int, int *);
 
 
 // ulib.c
