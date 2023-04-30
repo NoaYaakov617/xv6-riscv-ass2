@@ -424,14 +424,25 @@ exit(int status)
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     acquire(&kt->tlock);
-    kt->tstate = TZOMBIE;
+    if(kt != mykthread())
+      kt->tstate = TZOMBIE;
     release(&kt->tlock);
   }
 
   acquire(&mykthread()->tlock);
 
+
+
+  acquire(&mykthread()->tlock);
+  mykthread()->tstate = ZOMBIE;
+  release(&mykthread()->tlock);
+  release(&wait_lock);
+
   // Jump into the scheduler, never to return.
+  
+
   sched();
+
   panic("zombie exit");
 }
 
@@ -690,7 +701,9 @@ kill(int pid)
       for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++){
         acquire(&kt->tlock);
         if(kt->tstate == SLEEPING){
+          kt->tkilled = 1;
           kt->tstate = RUNNABLE;
+
         }
         release(&kt->tlock);
 
@@ -710,6 +723,13 @@ setkilled(struct proc *p)
 {
   acquire(&p->lock);
   p->killed = 1;
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++){
+    acquire(&kt->tlock);
+    kt->tkilled = 1;
+    release(&kt->tlock);
+
+  }
+  
   release(&p->lock);
 }
 
