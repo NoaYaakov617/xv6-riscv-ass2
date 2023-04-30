@@ -69,6 +69,7 @@ exec(char *path, char **argv)
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
+
   iunlockput(ip);
   end_op();
   ip = 0;
@@ -121,6 +122,17 @@ exec(char *path, char **argv)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
+
+
+  // changing the state of all the other kthreads to ZOMBIE
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    acquire(&kt->tlock);
+    if(kt != mykthread())
+      kt->tstate = TZOMBIE;
+    release(&kt->tlock);
+  }
+
     
   // Commit to the user image.
   oldpagetable = p->pagetable;
@@ -129,6 +141,12 @@ exec(char *path, char **argv)
   kt->trapframe->epc = elf.entry;  // initial program counter = main
   kt->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
+
+// exit from the current thread
+  acquire(&mykthread()->tlock);
+  mykthread()->tstate = ZOMBIE;
+  release(&mykthread()->tlock);
+
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 

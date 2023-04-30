@@ -89,3 +89,48 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//multithreads
+uint64
+sys_kthread_create(void)
+{
+  
+  
+}
+
+uint64
+sys_kthread_id(void)
+{
+  return kthread_id();
+}
+uint64
+sys_kthread_kill(void)
+{
+  int n;
+  argint(0, &n);
+  return kthread_kill(n);
+}
+uint64
+sys_kthread_exit(void)
+{
+  int n;
+  argint(0, &n);
+  kthread_exit(n);
+  return 0;
+}
+
+uint64
+sys_kthread_join(void)
+{
+  int n;
+  uint64 p;
+  argint(0, &n);
+  argaddr(1, &p);
+  return kthread_join(n,p);
+}
+
+
+
+
+
+

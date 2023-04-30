@@ -114,3 +114,110 @@ struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
 }
 
 
+
+// MultiThreads
+int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
+  int i, ktid;
+  struct kthread *nkt;
+  struct proc *p = myproc();
+  struct kthread *kt = mykthread();
+
+  // Allocate kthread
+  if(nkt = allockthread(p) == 0){
+    return -1;
+  }
+  if(start_func == 0 || stack == 0){
+    return -1;
+  }
+  
+  nkt->context = mykthread()->context;
+  nkt->kstack = stack;
+  nkt->trapframe = get_kthread_trapframe(&p,&nkt);
+  nkt->trapframe->a0 = 0; // ??????????
+  nkt->trapframe->epc = start_func;
+  nkt->trapframe->sp = stack + stack_size;
+  ktid = kt->tpid;
+
+  release(&nkt->tlock);
+
+
+  acquire(&nkt->tlock);
+  nkt->tstate = RUNNABLE;
+  release(&nkt->tlock);
+
+  return ktid;
+
+}
+
+int kthread_id(void){
+  return mykthread()->tpid;
+}
+
+int kthread_kill(int ktid){
+
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    
+    if(kt->tpid == ktid){
+      acquire(&kt->tlock);
+      kt->tkilled = 1;
+      if(kt->tstate == SLEEPING){
+        kt->tstate = RUNNABLE;
+      }
+      release(&kt->tlock);
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+    return -1;
+  }
+
+  
+
+
+
+}
+void kthread_exit(int status){
+  struct kthread *kt = mykthread();
+  acquire(&kt->tlock);
+  kt->txstate = status;
+  kt->tstate = TZOMBIE;
+  release(&kt->tlock);
+}
+
+int kthread_join(int ktid, int *status){
+  struct proc *p = myproc();
+  
+  acquire(&wait_lock);
+  for(;;){
+  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    if(kt->tpid == ktid){
+      acquire(&kt->tlock);
+      if(kt->tstate == TZOMBIE){
+        //if(kt->txstate != NULL){ 
+          if(status != 0 && copyout(p->pagetable, status, (char *)&kt->txstate,
+                                  sizeof(kt->txstate)) < 0) {
+            release(&kt->tlock);
+            release(&wait_lock);
+            return -1;
+            }
+          ///   freeproc(pp); ?????/
+          release(&kt->tlock);
+          release(&wait_lock);
+          return 0;
+        }
+        release(&kt->tlock);
+    }
+  
+  }
+  }
+             
+}
+
+      
+ 
+
+
