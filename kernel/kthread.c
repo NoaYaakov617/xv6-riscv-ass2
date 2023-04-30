@@ -34,7 +34,6 @@ void kthreadinit(struct proc *p)
  
   release(&p->lock);
   
-  
 }
 
 struct kthread *mykthread()
@@ -44,8 +43,8 @@ struct kthread *mykthread()
   struct kthread *kt = c->kthread;
   pop_off();
   return kt;
-
 }
+
 int
   alloctpid(struct proc *p){
     int tpid;
@@ -90,7 +89,6 @@ allockthread(struct proc *p){
   kt->context.sp = kt->kstack +  PGSIZE; 
 
   return kt;
-
 
   }
 

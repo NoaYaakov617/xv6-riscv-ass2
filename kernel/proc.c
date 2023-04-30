@@ -325,44 +325,43 @@ fork(void)
   }
   np->sz = p->sz;
 
+*(np->base_trapframes) = *(p->base_trapframes);
 
-
-
-np->kthread[0].pcb = np;
-np->kthread[0].context = kt->context;
-np->kthread[0].tchan = kt->tchan;
-
-
+*(np->kthread[0].trapframe) = *(kt->trapframe);
 
   // copy saved user registers.
-  *(np->kthread[0].trapframe) = *(kt->trapframe);
-
 
   // Cause fork to return 0 in the child.
   np->kthread[0].trapframe->a0 = 0;
 
-
-  // increment reference counts on open file descriptors.
-  for(i = 0; i < NOFILE; i++)
+   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  // increment reference counts on open file descriptors.
+ 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
-  pid = np->pid;
+  np->kthread[0].pcb = np;
+  np->kthread[0].tchan = kt->tchan;
 
   release(&np->kthread->tlock);
   release(&np->lock);
  
-
   acquire(&wait_lock);
   np->parent = p;
   release(&wait_lock);
 
   acquire(&np->lock);
   np->state = USED;
-  release(&np->lock);
+  release(&np->lock); 
+
+  pid = np->pid;
+  
+  acquire(&np->kthread->tlock);
+  np->kthread[0].tstate = RUNNABLE;
+  release(&np->kthread->tlock);
 
   return pid;
 }
@@ -417,6 +416,11 @@ exit(int status)
   
   acquire(&p->lock);
 
+  p->xstate = status;
+  p->state = ZOMBIE;
+  release(&p->lock);
+  release(&wait_lock);
+
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     acquire(&kt->tlock);
@@ -424,11 +428,7 @@ exit(int status)
     release(&kt->tlock);
   }
 
-  p->xstate = status;
-  p->state = ZOMBIE;
-  //release(&p->lock);
-
-  release(&wait_lock);
+  acquire(&mykthread()->tlock);
 
   // Jump into the scheduler, never to return.
   sched();
@@ -497,6 +497,7 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  struct kthread *kt;
   
   c->kthread = 0;
  
@@ -514,25 +515,25 @@ scheduler(void)
       }
       else{
         release(&p->lock);
-        if(p->kthread->tstate == RUNNABLE) {
+        for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
+          acquire(&kt->tlock); 
+          if(kt->tstate == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-          acquire(&p->kthread->tlock);
-          p->kthread[0].tstate = RUNNING;
-          c->kthread = &p->kthread[0];
+          kt->tstate = RUNNING;
+          c->kthread = kt;
         
-          swtch(&c->context, &p->kthread[0].context);
-       
-          release(&p->kthread->tlock);
+          swtch(&c->context, &kt->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
           c->kthread = 0;
-       
+            }
+          release(&kt->tlock);
+        }
       }
     }
-  }
   }
 }
 
@@ -580,9 +581,6 @@ yield(void)
   kt->tstate = RUNNABLE;
   sched();
   release(&kt->tlock);
-  
-
- 
   
 }
 
