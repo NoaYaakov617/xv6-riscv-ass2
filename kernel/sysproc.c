@@ -94,7 +94,13 @@ sys_uptime(void)
 uint64
 sys_kthread_create(void)
 {
-  
+  uint64 start_func;
+  uint64 stack;
+  argaddr(0, &start_func);
+  argaddr(1, &stack);
+ 
+  return kthread_create((void*)start_func, (void*)stack, kSTACK_SIZE);
+ 
   
 }
 
@@ -126,7 +132,7 @@ sys_kthread_join(void)
   uint64 p;
   argint(0, &n);
   argaddr(1, &p);
-  return kthread_join(n,p);
+  return kthread_join(n,(int *)&p);
 }
 
 
