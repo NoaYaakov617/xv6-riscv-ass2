@@ -143,9 +143,9 @@ exec(char *path, char **argv)
   proc_freepagetable(oldpagetable, oldsz);
 
 // exit from the current thread
-  acquire(&mykthread()->tlock);
-  mykthread()->tstate = ZOMBIE;
-  release(&mykthread()->tlock);
+  // acquire(&mykthread()->tlock);
+  // mykthread()->tstate = ZOMBIE;
+  // release(&mykthread()->tlock);
 
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)

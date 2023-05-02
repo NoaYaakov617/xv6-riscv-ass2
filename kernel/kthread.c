@@ -15,7 +15,7 @@ void kthreadinit(struct proc *p)
 {
   
   acquire(&p->lock);
-
+ 
   initlock(&p->counter_lock, "thread_counter_lock");
 
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
@@ -120,7 +120,7 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   int ktid;
   struct kthread *nkt;
   struct proc *p = myproc();
-  struct kthread *kt = mykthread();
+  //struct kthread *kt = mykthread();
 
   // Allocate kthread
   if((nkt = allockthread(p)) == 0){
@@ -130,13 +130,15 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
     return -1;
   }
   
-  nkt->context = mykthread()->context;
+  //nkt->context = mykthread()->context;
   nkt->kstack = (uint64)stack;
   nkt->trapframe = get_kthread_trapframe(p,nkt);
   nkt->trapframe->a0 = 0; // ??????????
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
-  ktid = kt->tpid;
+  //ktid = kt->tpid;
+   ktid = alloctpid(p);
+   nkt->tpid = ktid;
 
   release(&nkt->tlock);
 
@@ -175,42 +177,81 @@ int kthread_kill(int ktid){
   return -1;
 }
 void kthread_exit(int status){
+  struct proc *p = myproc();
   struct kthread *kt = mykthread();
+  struct kthread *klt;
+  int should_terminate = 1;
+  acquire(&p->lock);
+
+  wakeup(&kt->tlock);
+
   acquire(&kt->tlock);
+
   kt->txstate = status;
   kt->tstate = TZOMBIE;
-  release(&kt->tlock);
+
+  for (klt = p->kthread; klt < &p->kthread[NKT]; klt++)
+  {
+    if(klt != kt){
+      acquire(&klt->tlock);
+      if((klt->tstate != TZOMBIE) && (klt->tstate != TUNUSED)){
+        should_terminate = 0;
+      }
+      release(&klt->tlock);
+
+    }
+
+  }
+
+  release(&p->lock);
+
+  if(should_terminate){
+    release(&klt->tlock);
+    exit(0);
+  }
+  sched();
+  panic("zombie exit");
+
 }
 
 int kthread_join(int ktid, int *status){
+  printf("%d\n",ktid);
   struct proc *p = myproc();
-  
-  acquire(&wait_lock);
-  for(;;){
-  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  struct kthread *kt ;
+
+  for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
+    printf("%d",kt->tpid);
     if(kt->tpid == ktid){
-      acquire(&kt->tlock);
-      if(kt->tstate == TZOMBIE){
-        //if(kt->txstate != NULL){ 
-          if(status != 0 && copyout(p->pagetable, (uint64)status, (char *)&kt->txstate,
+      break;
+    }
+
+  }
+  
+  acquire(&p->lock);
+  
+  for(;;){
+    
+    acquire(&kt->tlock);
+    if(kt->tstate == TZOMBIE){
+        if(status != 0 && copyout(p->pagetable, (uint64)status, (char *)&kt->txstate,
                                   sizeof(kt->txstate)) < 0) {
             release(&kt->tlock);
-            release(&wait_lock);
+            release(&p->lock);
             return -1;
             }
-       
+          freekthread(kt);
           release(&kt->tlock);
-          release(&wait_lock);
+          release(&p->lock);
           return 0;
-        }
-        release(&kt->tlock);
     }
-  
-  }
+        release(&kt->tlock);
+        sleep(&kt->tlock, &p->lock);
+    }
+  return 0;
   }
              
-}
+
 
       
  

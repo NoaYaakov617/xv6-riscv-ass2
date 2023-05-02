@@ -133,9 +133,12 @@ allocproc(void)
 found:
 
   p->pid = allocpid();
- 
+  
   p->state = USED;
+  acquire(&p->counter_lock);
   p->tcounter = 1;
+  release(&p->counter_lock);
+  
 
 
   // Allocate a trapframe page.
@@ -321,11 +324,12 @@ fork(void)
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
+    release(&np->kthread->tlock);
     return -1;
   }
   np->sz = p->sz;
 
-*(np->base_trapframes) = *(p->base_trapframes);
+//*(np->base_trapframes) = *(p->base_trapframes);
 
 *(np->kthread[0].trapframe) = *(kt->trapframe);
 
@@ -343,8 +347,10 @@ fork(void)
  
   safestrcpy(np->name, p->name, sizeof(p->name));
 
-  np->kthread[0].pcb = np;
-  np->kthread[0].tchan = kt->tchan;
+  pid = np->pid;
+
+   np->kthread[0].pcb = np;
+   np->kthread[0].tchan = kt->tchan;
 
   release(&np->kthread->tlock);
   release(&np->lock);
@@ -357,7 +363,7 @@ fork(void)
   np->state = USED;
   release(&np->lock); 
 
-  pid = np->pid;
+  
   
   acquire(&np->kthread->tlock);
   np->kthread[0].tstate = RUNNABLE;
@@ -430,14 +436,8 @@ exit(int status)
   }
 
   acquire(&mykthread()->tlock);
-
-
-
-  acquire(&mykthread()->tlock);
   mykthread()->tstate = ZOMBIE;
-  release(&mykthread()->tlock);
-  release(&wait_lock);
-
+ 
   // Jump into the scheduler, never to return.
   
 
@@ -665,17 +665,18 @@ sleep(void *chan, struct spinlock *lk)
 void
 wakeup(void *chan)
 {
- 
+  struct kthread *kt;
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p != myproc()){
-      //acquire(&p->lock);
-      acquire(&p->kthread[0].tlock);
-      if(p->kthread[0].tstate == SLEEPING && p->kthread[0].tchan == chan) {
-        p->kthread[0].tstate = RUNNABLE;
+      for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
+      acquire(&kt->tlock);
+      if(kt->tstate == SLEEPING && kt->tchan == chan) {
+        kt->tstate = RUNNABLE;
       }
-      release(&p->kthread[0].tlock);
-      //release(&p->lock);
+      release(&kt->tlock);
+      }
+      
     }
   }
  

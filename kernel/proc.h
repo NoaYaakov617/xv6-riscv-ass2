@@ -8,7 +8,7 @@ enum procstate { UNUSED, USED, ZOMBIE };
 // Per-process state
 struct proc {
   struct spinlock lock;
-  int tcounter;
+  int tcounter; 
   struct spinlock counter_lock;
 
   // p->lock must be held when using these:
