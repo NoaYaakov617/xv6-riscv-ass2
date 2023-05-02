@@ -123,14 +123,19 @@ exec(char *path, char **argv)
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
 
-
+  struct kthread *ktp ;
   // changing the state of all the other kthreads to ZOMBIE
-  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+   for (ktp = p->kthread; ktp < &p->kthread[NKT]; ktp++)
   {
-    acquire(&kt->tlock);
-    if(kt != mykthread())
-      kt->tstate = TZOMBIE;
-    release(&kt->tlock);
+    int ktid = ktp->tpid;
+    if(ktp != mykthread()){
+      acquire(&ktp->tlock);
+      int * status = 0 ;
+      ktp->tkilled = 1 ; // turn on the flag of kill for everyone else
+      release(&ktp->tlock);
+      kthread_join(ktid,status); // wait for all the threads to exit
+    }
+    
   }
 
     
@@ -142,12 +147,9 @@ exec(char *path, char **argv)
   kt->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
-// exit from the current thread
-  // acquire(&mykthread()->tlock);
-  // mykthread()->tstate = ZOMBIE;
-  // release(&mykthread()->tlock);
 
 
+  
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

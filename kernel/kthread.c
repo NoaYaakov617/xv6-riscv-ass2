@@ -132,13 +132,12 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   
   //nkt->context = mykthread()->context;
   nkt->kstack = (uint64)stack;
-  nkt->trapframe = get_kthread_trapframe(p,nkt);
-  nkt->trapframe->a0 = 0; // ??????????
+  //nkt->trapframe = get_kthread_trapframe(p,nkt);
+  //nkt->trapframe->a0 = 0; // ??????????
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
-  //ktid = kt->tpid;
-   ktid = alloctpid(p);
-   nkt->tpid = ktid;
+  ktid = nkt->tpid;
+ 
 
   release(&nkt->tlock);
 
@@ -179,54 +178,58 @@ int kthread_kill(int ktid){
 void kthread_exit(int status){
   struct proc *p = myproc();
   struct kthread *kt = mykthread();
-  struct kthread *klt;
-  int should_terminate = 1;
+  //struct kthread *klt;
+  //int should_terminate = 1;
   acquire(&p->lock);
+  
 
   wakeup(&kt->tlock);
 
   acquire(&kt->tlock);
-
   kt->txstate = status;
   kt->tstate = TZOMBIE;
 
-  for (klt = p->kthread; klt < &p->kthread[NKT]; klt++)
-  {
-    if(klt != kt){
-      acquire(&klt->tlock);
-      if((klt->tstate != TZOMBIE) && (klt->tstate != TUNUSED)){
-        should_terminate = 0;
-      }
-      release(&klt->tlock);
+  
 
-    }
+  // for (klt = p->kthread; klt < &p->kthread[NKT]; klt++)
+  // {
+  //   if(klt != kt){
+  //     acquire(&klt->tlock);
+  //     if((klt->tstate != TZOMBIE) && (klt->tstate != TUNUSED)){
+  //       should_terminate = 0;
+  //     }
+  //     release(&klt->tlock);
 
-  }
+  //   }
+
+  // }
 
   release(&p->lock);
 
-  if(should_terminate){
-    release(&klt->tlock);
-    exit(0);
-  }
+  // if(should_terminate){
+  //   release(&klt->tlock);
+  //   exit(0);
+  // }
   sched();
   panic("zombie exit");
 
 }
 
 int kthread_join(int ktid, int *status){
-  printf("%d\n",ktid);
+ // printf("aaa%d\n",ktid);
   struct proc *p = myproc();
   struct kthread *kt ;
 
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
-    printf("%d",kt->tpid);
+   // printf("bbbbb%d\n",kt->tpid);
     if(kt->tpid == ktid){
       break;
     }
 
   }
+
+  if(kt->tpid == ktid){
   
   acquire(&p->lock);
   
@@ -248,7 +251,12 @@ int kthread_join(int ktid, int *status){
         release(&kt->tlock);
         sleep(&kt->tlock, &p->lock);
     }
-  return 0;
+    return 0;
+
+  }
+  return -1;
+ 
+  
   }
              
 

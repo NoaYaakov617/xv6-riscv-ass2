@@ -394,6 +394,21 @@ void
 exit(int status)
 {
   struct proc *p = myproc();
+  struct kthread *kt;
+  
+  for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+    int ktid = kt->tpid;
+    if(kt != mykthread()){
+      acquire(&kt->tlock);
+      int * status = 0 ;
+      kt->tkilled = 1 ; // turn on the flag of kill for everyone else
+      release(&kt->tlock);
+      kthread_join(ktid,status); // wait for all the threads to exit
+    }
+    
+  }
+
 
   if(p == initproc)
     panic("init exiting");
@@ -427,20 +442,9 @@ exit(int status)
   release(&p->lock);
   release(&wait_lock);
 
-  for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
-  {
-    acquire(&kt->tlock);
-    if(kt != mykthread())
-      kt->tstate = TZOMBIE;
-    release(&kt->tlock);
-  }
+  kthread_exit(0);
 
-  acquire(&mykthread()->tlock);
-  mykthread()->tstate = ZOMBIE;
- 
   // Jump into the scheduler, never to return.
-  
-
   sched();
 
   panic("zombie exit");
