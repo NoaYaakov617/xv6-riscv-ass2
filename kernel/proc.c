@@ -442,7 +442,13 @@ exit(int status)
   release(&p->lock);
   release(&wait_lock);
 
-  kthread_exit(0);
+  //kthread_exit(0);
+
+ 
+  acquire(&mykthread()->tlock);
+ 
+  mykthread()->tstate = ZOMBIE;
+  
 
   // Jump into the scheduler, never to return.
   sched();
