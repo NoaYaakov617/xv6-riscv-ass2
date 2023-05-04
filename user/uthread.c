@@ -5,6 +5,8 @@ struct uthread *current_thread;
 int on = 0;
 
 
+
+
 int uthread_create(void (*start_func)(), enum sched_priority priority){
     struct uthread *t;
     for (t = uthreads_table; t < &uthreads_table[MAX_UTHREADS]; t++)
@@ -23,79 +25,37 @@ int uthread_create(void (*start_func)(), enum sched_priority priority){
     }
     return -1;
     }
+
+
     
 
 void uthread_yield(){
-    struct uthread *curr_thread;
-    struct uthread *max_thread = uthreads_table;
-    int max_priority_counter = 0;
-    enum sched_priority max_priority = max_thread->priority;
-    for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
-    {
-        if(curr_thread->state == RUNNABLE){
-            if(curr_thread->priority > max_priority){
-                max_priority = curr_thread->priority;
-                max_thread = curr_thread;
-                max_priority_counter = 1;
+    struct uthread *next = get_next_max_thread();
 
-            }
-            else if (curr_thread->priority == max_priority)
-            {
-                max_priority_counter++;
-            }    
-            
-        }
+    if(next == 0 || next->priority < current_thread->priority){
+        next = current_thread;
+
     }
-    if (max_priority_counter > 1 && max_thread == current_thread)
-    {
-        for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
-        {
-        if(curr_thread->state == RUNNABLE && curr_thread->priority == max_priority && curr_thread != current_thread){
-                max_thread = curr_thread;
-            }
-
-
-        }
-    
+    struct uthread *old = current_thread;
     current_thread->state = RUNNABLE;
-    max_thread->state = RUNNING;
-    uswtch(&current_thread->context,&max_thread->context);
+    next->state = RUNNING;
+    current_thread = next;
+    uswtch(&old->context,&next->context);
 
-
-    }
 }
 
 void uthread_exit(){
-    struct uthread *curr_thread;
-    int num_of_runable_threads = 0;
-    for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
-    {
-        if(curr_thread->state == RUNNABLE ){
-            num_of_runable_threads++;
-            break;
-        }  
-    }
-    if(num_of_runable_threads == 0){
-        current_thread->state = FREE;
+    struct uthread *next = get_next_max_thread();
+     if(next == 0 ){
         exit(0);
     }
-
-  
-    struct uthread *max_thread = uthreads_table;
-    enum sched_priority max_priority = max_thread->priority;
-    for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
-    {
-        if(curr_thread->state == RUNNABLE && curr_thread->priority > max_priority && curr_thread != current_thread){
-                max_priority = curr_thread->priority;
-                max_thread = curr_thread;
-            } 
-    }
+    struct uthread *old = current_thread;
     current_thread->state = FREE;
-    max_thread->state = RUNNING;
-    uswtch(&current_thread->context,&max_thread->context);
+    next->state = RUNNING;
+    current_thread = next;
+    uswtch(&old->context,&next->context);
 
-    }
-
+}
 
 
 int uthread_start_all(){
@@ -103,28 +63,26 @@ int uthread_start_all(){
     if(on == 0){
         on = 1;
  
-    struct uthread *curr_thread;
+    struct uthread *temp;
     struct uthread *max_thread = uthreads_table;
     enum sched_priority max_priority = max_thread->priority;
-    for (curr_thread = uthreads_table; curr_thread < &uthreads_table[MAX_UTHREADS]; curr_thread++)
+    for (temp = uthreads_table; temp < &uthreads_table[MAX_UTHREADS]; temp++)
     {
-        if(curr_thread->state == RUNNABLE){
-            if(curr_thread->priority > max_priority){
-                max_priority = curr_thread->priority;
-                max_thread = curr_thread;
+        if(temp->state == RUNNABLE){
+            if(temp->priority > max_priority){
+                max_priority = temp->priority;
+                max_thread = temp;
             }
-   
         }
-
     }
 
     current_thread = max_thread;
     current_thread->state = RUNNING;
-    uswtch(&current_thread->context,&current_thread->context);
+    struct context name;
+    uswtch(&name,&current_thread->context);
     return 0;
 
     }
-    
 
     else{
         return -1;
@@ -145,4 +103,31 @@ enum sched_priority uthread_get_priority(){
 struct uthread* uthread_self(){
     return current_thread;
 }
+
+struct uthread* get_next_max_thread(){
+    struct uthread* temp = current_thread++;
+    struct uthread* max_thread = temp;
+    enum sched_priority max_priority = temp->priority;
+
+    for (temp = current_thread++;  temp < &uthreads_table[MAX_UTHREADS]; temp++)
+    {
+         if(temp->state == RUNNABLE){
+            if(temp->priority > max_priority){
+                max_priority = temp->priority;
+                max_thread = temp;
+            }
+         }
+    }
+
+    if(max_thread->state == RUNNABLE){
+        return max_thread;
+    }
+    else{
+        return 0 ;
+    }
+
+
+}
+
+
 

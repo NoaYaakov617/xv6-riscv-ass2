@@ -137,11 +137,7 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
   ktid = nkt->tpid;
- 
-
   release(&nkt->tlock);
-
-
   acquire(&nkt->tlock);
   nkt->tstate = RUNNABLE;
   release(&nkt->tlock);
@@ -176,10 +172,11 @@ int kthread_kill(int ktid){
   return -1;
 }
 void kthread_exit(int status){
+  
   struct proc *p = myproc();
   struct kthread *kt = mykthread();
-  //struct kthread *klt;
-  //int should_terminate = 1;
+  struct kthread *klt;
+  int should_terminate = 1;
   acquire(&p->lock);
   
 
@@ -189,27 +186,30 @@ void kthread_exit(int status){
   kt->txstate = status;
   kt->tstate = TZOMBIE;
 
-  
 
-  // for (klt = p->kthread; klt < &p->kthread[NKT]; klt++)
-  // {
-  //   if(klt != kt){
-  //     acquire(&klt->tlock);
-  //     if((klt->tstate != TZOMBIE) && (klt->tstate != TUNUSED)){
-  //       should_terminate = 0;
-  //     }
-  //     release(&klt->tlock);
+printf("before for\n");
+  for (klt = p->kthread; klt < &p->kthread[NKT]; klt++)
+  {
+    if(klt != kt){
+      acquire(&klt->tlock);
+      if((klt->tstate != TZOMBIE) && (klt->tstate != TUNUSED)){
+        should_terminate = 0;
+      }
+      release(&klt->tlock);
 
-  //   }
+    }
 
-  // }
+  }
 
   release(&p->lock);
+  printf("after release p.lock\n");
 
-  // if(should_terminate){
-  //   release(&klt->tlock);
-  //   exit(0);
-  // }
+  if(should_terminate){
+    release(&klt->tlock);
+    printf("in should_trminate\n");
+    exit(0);
+  }
+  
   sched();
   panic("zombie exit");
 
