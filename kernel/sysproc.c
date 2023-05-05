@@ -98,7 +98,7 @@ sys_kthread_create(void)
   uint64 stack;
   argaddr(0, &start_func);
   argaddr(1, &stack);
- 
+
   return kthread_create((void*)start_func, (void*)stack, kSTACK_SIZE);
  
   

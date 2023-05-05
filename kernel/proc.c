@@ -400,14 +400,21 @@ exit(int status)
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     int ktid = kt->tpid;
-    if(kt != mykthread()){
-      acquire(&kt->tlock);
-      int * status = 0 ;
-      kt->tkilled = 1 ; // turn on the flag of kill for everyone else
-      release(&kt->tlock);
-      kthread_join(ktid,status); // wait for all the threads to exit
+    if(kt != mykthread() && kt->tstate != TUNUSED && kt->tstate != TZOMBIE){
+      kthread_kill(ktid);
     }
     
+  }
+  for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
+  {
+
+    int ktid = kt->tpid;
+    int *stat = 0;
+     if(kt != mykthread() && kt->tstate != TUNUSED ){
+        kthread_join(ktid,stat);
+        
+     }
+
   }
 
 
@@ -449,7 +456,8 @@ exit(int status)
   acquire(&mykthread()->tlock);
  
   mykthread()->tstate = ZOMBIE;
-  
+  mykthread()->txstate = status;
+
 
   // Jump into the scheduler, never to return.
   sched();
@@ -716,16 +724,17 @@ wakeup(void *chan)
   struct kthread *kt;
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
-    if(p != myproc()){
+   // if(p != myproc()){
       for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
-      acquire(&kt->tlock);
-      if(kt->tstate == SLEEPING && kt->tchan == chan) {
-        kt->tstate = RUNNABLE;
+          acquire(&kt->tlock);
+          if(kt->tstate == SLEEPING && kt->tchan == chan) {
+
+          kt->tstate = RUNNABLE;
       }
       release(&kt->tlock);
       }
       
-    }
+  
   }
  
 }
@@ -749,13 +758,12 @@ kill(int pid)
       // }
       for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++){
         acquire(&kt->tlock);
+        
         if(kt->tstate == SLEEPING){
           kt->tkilled = 1;
           kt->tstate = RUNNABLE;
-
         }
         release(&kt->tlock);
-
 
       }
       release(&p->lock);

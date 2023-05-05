@@ -125,17 +125,24 @@ exec(char *path, char **argv)
 
   struct kthread *ktp ;
   // changing the state of all the other kthreads to ZOMBIE
-   for (ktp = p->kthread; ktp < &p->kthread[NKT]; ktp++)
+  for (ktp = p->kthread; ktp < &p->kthread[NKT]; ktp++)
   {
     int ktid = ktp->tpid;
-    if(ktp != mykthread()){
-      acquire(&ktp->tlock);
-      int * status = 0 ;
-      ktp->tkilled = 1 ; // turn on the flag of kill for everyone else
-      release(&ktp->tlock);
-      kthread_join(ktid,status); // wait for all the threads to exit
+    if(ktp != mykthread() && ktp->tstate != TUNUSED && ktp->tstate != TZOMBIE){
+      kthread_kill(ktid);
     }
     
+  }
+  for (ktp = p->kthread; ktp < &p->kthread[NKT]; ktp++)
+  {
+
+    int ktid = ktp->tpid;
+    int *stat = 0;
+     if(ktp != mykthread() && ktp->tstate != TUNUSED ){
+        kthread_join(ktid,stat);
+        
+     }
+
   }
 
     
