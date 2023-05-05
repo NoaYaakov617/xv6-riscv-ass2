@@ -393,6 +393,7 @@ reparent(struct proc *p)
 void
 exit(int status)
 {
+ 
   struct proc *p = myproc();
   struct kthread *kt;
   
@@ -528,14 +529,11 @@ scheduler(void)
    //printf("before init_on\n");
     intr_on();
    
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if (&p->state ==  UNUSED){
-        release(&p->lock);
+    for(p = proc; p < &proc[NPROC]; p++) {  
+      if (p->state ==  UNUSED || p->state ==  ZOMBIE){
         continue;
       }
       else{
-        release(&p->lock);
         for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
           acquire(&kt->tlock); 
           if(kt->tstate == RUNNABLE) {
@@ -550,13 +548,53 @@ scheduler(void)
         // Process is done running for now.
         // It should have changed its p->state before coming back.
           c->kthread = 0;
-            }
+           }
           release(&kt->tlock);
         }
       }
     }
   }
 }
+
+// void
+// scheduler(void){
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+//   struct kthread *kt;
+  
+//   c->kthread = 0;
+ 
+//   for(;;){
+//     // Avoid deadlock by ensuring that devices can interrupt.
+   
+//    //printf("before init_on\n");
+//     intr_on();
+   
+//     for(p = proc; p < &proc[NPROC]; p++) {  
+//         for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
+//           acquire(&kt->tlock); 
+//           if(kt->tstate == RUNNABLE) {
+//         // Switch to chosen process.  It is the process's job
+//         // to release its lock and then reacquire it
+//         // before jumping back to us.
+//           kt->tstate = RUNNING;
+//           c->kthread = kt;
+        
+//           swtch(&c->context, &kt->context);
+
+//         // Process is done running for now.
+//         // It should have changed its p->state before coming back.
+//           c->kthread = 0;
+//            }
+//           release(&kt->tlock);
+        
+//       }
+//     }
+//   }
+// }
+
+
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores

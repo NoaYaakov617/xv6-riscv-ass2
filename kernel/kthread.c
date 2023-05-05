@@ -65,7 +65,21 @@ allockthread(struct proc *p){
   {
     acquire(&kt->tlock);
     if(kt->tstate == TUNUSED){
-      goto found;
+        
+      kt->tpid = alloctpid(p);
+  
+      kt->tstate = TUSED;
+  
+      //feching the trapframe using the required method. the base trapframe of the process should be set before this fetch
+      kt->trapframe = get_kthread_trapframe(p, kt);
+
+      memset(&kt->context, 0, sizeof(kt->context));
+      kt->context.ra = (uint64)forkret;
+      kt->context.sp = kt->kstack +  PGSIZE; 
+
+     
+
+      return kt;
     }
 
     else{
@@ -73,29 +87,13 @@ allockthread(struct proc *p){
     }
 
   }
-   
-  return 0;  
-  found:
-  
-  kt->tpid = alloctpid(p);
-  
-  kt->tstate = TUSED;
-  
-//feching the trapframe using the required method. the base trapframe of the process should be set before this fetch
-  kt->trapframe = get_kthread_trapframe(p, kt);
+ 
+  return 0;
 
-  memset(&kt->context, 0, sizeof(kt->context));
-  kt->context.ra = (uint64)forkret;
-  kt->context.sp = kt->kstack +  PGSIZE; 
-
-  return kt;
-
-  }
+}
 
 void
  freekthread(struct kthread *kt){
-  
- 
   kt->tpid = 0;
   kt->trapframe = 0;
   kt->tchan = 0;
@@ -103,9 +101,6 @@ void
   kt->txstate = 0;
   kt->tstate = TUNUSED;
   kt->pcb = 0;
-
- 
-
  }
 
 struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
@@ -121,18 +116,18 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   struct kthread *nkt;
   struct proc *p = myproc();
   //struct kthread *kt = mykthread();
-
+  nkt = allockthread(p);
   // Allocate kthread
-  if((nkt = allockthread(p)) == 0){
+  if(nkt  == 0){
+    printf("nkt is 0\n");
     return -1;
   }
   if(start_func == 0 || stack == 0){
     return -1;
   }
   
-  //nkt->context = mykthread()->context;
+ 
   nkt->kstack = (uint64)stack;
-  //nkt->trapframe = get_kthread_trapframe(p,nkt);
   //nkt->trapframe->a0 = 0; // ??????????
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
@@ -216,13 +211,11 @@ printf("before for\n");
 }
 
 int kthread_join(int ktid, int *status){
- // printf("aaa%d\n",ktid);
   struct proc *p = myproc();
   struct kthread *kt ;
 
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
-   // printf("bbbbb%d\n",kt->tpid);
     if(kt->tpid == ktid){
       break;
     }
@@ -236,7 +229,7 @@ int kthread_join(int ktid, int *status){
   for(;;){
     
     acquire(&kt->tlock);
-    if(kt->tstate == TZOMBIE){
+    if(kt->tstate == TZOMBIE || kt->tstate == TUNUSED){
         if(status != 0 && copyout(p->pagetable, (uint64)status, (char *)&kt->txstate,
                                   sizeof(kt->txstate)) < 0) {
             release(&kt->tlock);
