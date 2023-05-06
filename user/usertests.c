@@ -2617,7 +2617,6 @@ void ulttest()
 
 
 void kthread_start_func(void){
-  printf("enter to startfunc\n");
   for(int i=0; i<10; i++){
     sleep(10); // simulate work
   }

@@ -137,7 +137,7 @@ exec(char *path, char **argv)
   {
 
     int ktid = ktp->tpid;
-    int *stat = 0;
+    uint64 stat = 0;
      if(ktp != mykthread() && ktp->tstate != TUNUSED ){
         kthread_join(ktid,stat);
         

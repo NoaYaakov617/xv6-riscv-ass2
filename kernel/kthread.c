@@ -122,7 +122,6 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   nkt = allockthread(p);
   // Allocate kthread
   if(nkt  == 0){
-    printf("nkt is 0\n");
     return -1;
   }
   // if(start_func == 0 || stack == 0){
@@ -138,7 +137,6 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   //acquire(&nkt->tlock);
   nkt->tstate = RUNNABLE;
   release(&nkt->tlock);
-  printf("end of creat\n");
   return ktid;
 
 
@@ -171,7 +169,6 @@ int kthread_kill(int ktid){
   return -1;
 }
 void kthread_exit(int status){
-  printf("enter to kthread_exit\n");
   
   struct proc *p = myproc();
   struct kthread *kt = mykthread();
@@ -203,7 +200,6 @@ void kthread_exit(int status){
   
 
   if(should_terminate){
-    printf("should terminate\n");
     release(&kt->tlock);
     exit(status);
   }
@@ -214,8 +210,7 @@ void kthread_exit(int status){
 
 }
 
-int kthread_join(int ktid, int *status){
-  printf("enter to kthread_join\n");
+int kthread_join(int ktid, uint64 status){
   struct proc *p = myproc();
   struct kthread *kt ;
 
@@ -224,7 +219,6 @@ int kthread_join(int ktid, int *status){
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     if(kt->tpid == ktid){
-      printf("found ktpid\n");
       break;
     }
 
@@ -235,14 +229,11 @@ int kthread_join(int ktid, int *status){
   acquire(&new_lock);
   
   for(;;){
-    printf("in for\n");
     
     acquire(&kt->tlock);
     if(kt->tstate == TZOMBIE){
-      printf("kt is zombie\n");
-        if(status != 0 && copyout(p->pagetable, (uint64)status, (char *)&kt->txstate,
-                                  sizeof(kt->txstate)) < 0) {
-            printf("hi11111111111111\n");                     
+        if(status != 0 && copyout(p->pagetable, status, (char *)&kt->txstate,
+                                  sizeof(kt->txstate)) < 0) {                    
             release(&kt->tlock);
             release(&new_lock);
             return -1;
@@ -250,11 +241,9 @@ int kthread_join(int ktid, int *status){
           freekthread(kt);
           release(&kt->tlock);
           release(&new_lock);
-          printf("before return from join\n");
           return 0;
     }
         release(&kt->tlock);
-        printf("before going to sleep\n");
         sleep(kt, &new_lock);
     }
 

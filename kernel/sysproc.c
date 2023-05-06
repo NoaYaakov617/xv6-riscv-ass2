@@ -132,7 +132,7 @@ sys_kthread_join(void)
   uint64 p;
   argint(0, &n);
   argaddr(1, &p);
-  return kthread_join(n,(int *)&p);
+  return kthread_join(n,p);
 }
 
 

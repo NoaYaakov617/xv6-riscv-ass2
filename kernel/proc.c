@@ -393,7 +393,6 @@ reparent(struct proc *p)
 void
 exit(int status)
 {
-  printf("enter to proc exit\n");
  
   struct proc *p = myproc();
   struct kthread *kt;
@@ -410,7 +409,7 @@ exit(int status)
   {
 
     int ktid = kt->tpid;
-    int *stat = 0;
+    uint64 stat = 0;
      if(kt != mykthread() && kt->tstate != TUNUSED ){
         kthread_join(ktid,stat);
         

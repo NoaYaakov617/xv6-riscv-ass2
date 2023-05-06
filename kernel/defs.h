@@ -120,7 +120,7 @@ int                 kthread_create( void *(*start_func)(), void *stack, uint sta
 int                 kthread_id(void);
 int                 kthread_kill(int);
 void                kthread_exit(int);
-int                 kthread_join(int, int *);
+int                 kthread_join(int, uint64);
 
 
 
