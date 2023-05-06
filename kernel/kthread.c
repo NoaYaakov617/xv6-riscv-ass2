@@ -98,12 +98,10 @@ allockthread(struct proc *p){
 void
  freekthread(struct kthread *kt){
   kt->tpid = 0;
-  //kt->trapframe = 0;
   kt->tchan = 0;
   kt->tkilled = 0;
   kt->txstate = 0;
   kt->tstate = TUNUSED;
-  //kt->pcb = 0;
  }
 
 struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
@@ -118,23 +116,15 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   int ktid;
   struct kthread *nkt;
   struct proc *p = myproc();
-  //struct kthread *kt = mykthread();
   nkt = allockthread(p);
   // Allocate kthread
   if(nkt  == 0){
     return -1;
   }
-  // if(start_func == 0 || stack == 0){
-  //   return -1;
-  // }
-  
-  //nkt->kstack = (uint64)stack;
-  //nkt->trapframe->a0 = 0; // ??????????
+ 
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
   ktid = nkt->tpid;
-  //release(&nkt->tlock);
-  //acquire(&nkt->tlock);
   nkt->tstate = RUNNABLE;
   release(&nkt->tlock);
   return ktid;
@@ -149,7 +139,6 @@ int kthread_id(void){
 int kthread_kill(int ktid){
 
   struct proc *p = myproc();
-  //acquire(&p->lock);
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     
@@ -165,7 +154,6 @@ int kthread_kill(int ktid){
     }
     
   }
-  //release(&p->lock);
   return -1;
 }
 void kthread_exit(int status){

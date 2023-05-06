@@ -444,19 +444,13 @@ exit(int status)
   wakeup(p->parent);
   
   acquire(&p->lock);
-
+  acquire(&mykthread()->tlock);
   p->xstate = status;
   p->state = ZOMBIE;
-  release(&p->lock);
-  release(&wait_lock);
-
-  //kthread_exit(0);
-
- 
-  acquire(&mykthread()->tlock);
- 
   mykthread()->tstate = ZOMBIE;
   mykthread()->txstate = status;
+  release(&p->lock);
+  release(&wait_lock);
 
 
   // Jump into the scheduler, never to return.
@@ -566,44 +560,6 @@ scheduler(void)
   }
 }
 
-// void
-// scheduler(void){
-//   struct proc *p;
-//   struct cpu *c = mycpu();
-//   struct kthread *kt;
-  
-//   c->kthread = 0;
- 
-//   for(;;){
-//     // Avoid deadlock by ensuring that devices can interrupt.
-   
-//    //printf("before init_on\n");
-//     intr_on();
-   
-//     for(p = proc; p < &proc[NPROC]; p++) {  
-//         for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
-//           acquire(&kt->tlock); 
-//           if(kt->tstate == RUNNABLE) {
-//         // Switch to chosen process.  It is the process's job
-//         // to release its lock and then reacquire it
-//         // before jumping back to us.
-//           kt->tstate = RUNNING;
-//           c->kthread = kt;
-        
-//           swtch(&c->context, &kt->context);
-
-//         // Process is done running for now.
-//         // It should have changed its p->state before coming back.
-//           c->kthread = 0;
-//            }
-//           release(&kt->tlock);
-        
-//       }
-//     }
-//   }
-// }
-
-
 
 
 // Switch to scheduler.  Must hold only p->lock
@@ -618,11 +574,9 @@ sched(void)
 {
  
   int intena;
-  //struct proc *p = myproc();
   struct kthread *t = mykthread();
 
-  // if(!holding(&p->lock))
-  //   panic("sched p->lock");
+ 
     //check also is the thread lock is acquired
   if(!holding(&t->tlock))
     panic("sched t->tlock");
@@ -660,8 +614,6 @@ forkret(void)
 {
  
   static int first = 1;
-
-  //struct proc* p = myproc();
   
   // Still holding ktheat->tlock from scheduler.
   release(&mykthread()->tlock);
@@ -700,9 +652,6 @@ sleep(void *chan, struct spinlock *lk)
   kt->tchan = chan;
   kt->tstate = SLEEPING;
   
-
-  // Go to sleep.
-  //p->chan = chan;
  
   sched();
   // Tidy up.
@@ -722,7 +671,6 @@ wakeup(void *chan)
   struct kthread *kt;
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
-    //if(p != myproc()){
       for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
           acquire(&kt->tlock);
           if(kt->tstate == SLEEPING && kt->tchan == chan) {
@@ -730,10 +678,11 @@ wakeup(void *chan)
           kt->tstate = RUNNABLE;
       }
       release(&kt->tlock);
+
       }
   
       
-  
+ 
   }
  
 }
@@ -751,20 +700,6 @@ kill(int pid)
     acquire(&p->lock);
     if(p->pid == pid){
       p->killed = 1;
-      // if(p->state == SLEEPING){
-      //   // Wake process from sleep().
-      //   p->state = RUNNABLE;
-      // }
-      // for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++){
-      //   acquire(&kt->tlock);
-        
-      //   if(kt->tstate == SLEEPING){
-      //     kt->tkilled = 1;
-      //     kt->tstate = RUNNABLE;
-      //   }
-      //   release(&kt->tlock);
-
-      // }
       release(&p->lock);
       return 0;
     }
