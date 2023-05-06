@@ -393,6 +393,7 @@ reparent(struct proc *p)
 void
 exit(int status)
 {
+  printf("enter to proc exit\n");
  
   struct proc *p = myproc();
   struct kthread *kt;
@@ -511,6 +512,8 @@ wait(uint64 addr)
     }
     
     // Wait for a child to exit.
+
+
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
 }
@@ -684,8 +687,6 @@ forkret(void)
 void
 sleep(void *chan, struct spinlock *lk)
 {
- 
- 
   struct kthread *kt = mykthread();
   
   // Must acquire p->lock in order to
@@ -695,25 +696,23 @@ sleep(void *chan, struct spinlock *lk)
   // (wakeup locks p->lock),
   // so it's okay to release lk.
 
-  
-
   acquire(&kt->tlock);
+  release(lk);
   kt->tchan = chan;
   kt->tstate = SLEEPING;
-  release(lk);
+  
 
   // Go to sleep.
   //p->chan = chan;
  
   sched();
-
   // Tidy up.
   kt->tchan = 0;
 
   // Reacquire original lock.
   release(&kt->tlock);
   acquire(lk);
- 
+
 }
 
 // Wake up all processes sleeping on chan.
@@ -724,7 +723,7 @@ wakeup(void *chan)
   struct kthread *kt;
   struct proc *p;
   for(p = proc; p < &proc[NPROC]; p++) {
-   // if(p != myproc()){
+    //if(p != myproc()){
       for (kt = p->kthread; kt < &p->kthread[NKT]; kt++) {
           acquire(&kt->tlock);
           if(kt->tstate == SLEEPING && kt->tchan == chan) {
@@ -733,6 +732,7 @@ wakeup(void *chan)
       }
       release(&kt->tlock);
       }
+  
       
   
   }
@@ -756,16 +756,16 @@ kill(int pid)
       //   // Wake process from sleep().
       //   p->state = RUNNABLE;
       // }
-      for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++){
-        acquire(&kt->tlock);
+      // for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++){
+      //   acquire(&kt->tlock);
         
-        if(kt->tstate == SLEEPING){
-          kt->tkilled = 1;
-          kt->tstate = RUNNABLE;
-        }
-        release(&kt->tlock);
+      //   if(kt->tstate == SLEEPING){
+      //     kt->tkilled = 1;
+      //     kt->tstate = RUNNABLE;
+      //   }
+      //   release(&kt->tlock);
 
-      }
+      // }
       release(&p->lock);
       return 0;
     }

@@ -8,7 +8,7 @@
 
 extern struct proc proc[NPROC];
 extern struct spinlock wait_lock;
-//struct spinlock new_lock;
+struct spinlock new_lock;
 
 
 
@@ -19,7 +19,7 @@ void kthreadinit(struct proc *p)
  
   initlock(&p->counter_lock, "thread_counter_lock");
 
-  //initlock(&new_lock, "new_lock");
+  initlock(&new_lock, "new_lock");
 
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
@@ -98,12 +98,12 @@ allockthread(struct proc *p){
 void
  freekthread(struct kthread *kt){
   kt->tpid = 0;
-  kt->trapframe = 0;
+  //kt->trapframe = 0;
   kt->tchan = 0;
   kt->tkilled = 0;
   kt->txstate = 0;
   kt->tstate = TUNUSED;
-  kt->pcb = 0;
+  //kt->pcb = 0;
  }
 
 struct trapframe *get_kthread_trapframe(struct proc *p, struct kthread *kt)
@@ -129,14 +129,13 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   //   return -1;
   // }
   
- 
-  nkt->kstack = (uint64)stack;
+  //nkt->kstack = (uint64)stack;
   //nkt->trapframe->a0 = 0; // ??????????
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
   ktid = nkt->tpid;
-  release(&nkt->tlock);
-  acquire(&nkt->tlock);
+  //release(&nkt->tlock);
+  //acquire(&nkt->tlock);
   nkt->tstate = RUNNABLE;
   release(&nkt->tlock);
   printf("end of creat\n");
@@ -152,7 +151,7 @@ int kthread_id(void){
 int kthread_kill(int ktid){
 
   struct proc *p = myproc();
-  acquire(&p->lock);
+  //acquire(&p->lock);
   for (struct kthread *kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     
@@ -168,7 +167,7 @@ int kthread_kill(int ktid){
     }
     
   }
-  release(&p->lock);
+  //release(&p->lock);
   return -1;
 }
 void kthread_exit(int status){
@@ -179,9 +178,9 @@ void kthread_exit(int status){
   struct kthread *klt;
   int should_terminate = 1;
   
-  acquire(&p->lock);
+  acquire(&new_lock);
   
-  wakeup(&kt->tlock);
+  wakeup(kt);
 
   acquire(&kt->tlock);
   kt->txstate = status;
@@ -200,11 +199,12 @@ void kthread_exit(int status){
 
   }
 
-  release(&p->lock);
+  release(&new_lock);
   
 
   if(should_terminate){
-    release(&klt->tlock);
+    printf("should terminate\n");
+    release(&kt->tlock);
     exit(status);
   }
   
@@ -219,6 +219,8 @@ int kthread_join(int ktid, int *status){
   struct proc *p = myproc();
   struct kthread *kt ;
 
+ 
+
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
     if(kt->tpid == ktid){
@@ -230,28 +232,31 @@ int kthread_join(int ktid, int *status){
 
   if(kt->tpid == ktid){
   
-  acquire(&p->lock);
+  acquire(&new_lock);
   
   for(;;){
+    printf("in for\n");
     
     acquire(&kt->tlock);
     if(kt->tstate == TZOMBIE){
+      printf("kt is zombie\n");
         if(status != 0 && copyout(p->pagetable, (uint64)status, (char *)&kt->txstate,
                                   sizeof(kt->txstate)) < 0) {
+            printf("hi11111111111111\n");                     
             release(&kt->tlock);
-            release(&p->lock);
+            release(&new_lock);
             return -1;
             }
           freekthread(kt);
           release(&kt->tlock);
-          release(&p->lock);
+          release(&new_lock);
           printf("before return from join\n");
           return 0;
     }
         release(&kt->tlock);
-        sleep(&kt->tlock, &p->lock);
+        printf("before going to sleep\n");
+        sleep(kt, &new_lock);
     }
-    return 0;
 
   }
   return -1;

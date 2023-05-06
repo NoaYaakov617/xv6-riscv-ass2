@@ -56,6 +56,8 @@ usertrap(void)
     if(killed(p))
       exit(-1);
 
+
+
     if(kt->tkilled){ 
       kthread_exit(-1);
     }
