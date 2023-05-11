@@ -133,6 +133,7 @@ allocproc(void)
 found:
 
   p->pid = allocpid();
+  p->in_exit = 0;
   
   p->state = USED;
   acquire(&p->counter_lock);
@@ -192,6 +193,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->in_exit = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -395,7 +397,12 @@ exit(int status)
 {
  
   struct proc *p = myproc();
-  struct kthread *kt;
+
+  if (p->in_exit == 0)
+  {
+    p->in_exit = 1;
+    struct kthread *kt;
+
   
   for (kt = p->kthread; kt < &p->kthread[NKT]; kt++)
   {
@@ -457,6 +464,12 @@ exit(int status)
   sched();
 
   panic("zombie exit");
+
+  }
+ 
+  
+  
+  
 }
 
 // Wait for a child process to exit and return its pid.

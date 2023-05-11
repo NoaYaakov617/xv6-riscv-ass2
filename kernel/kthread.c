@@ -119,8 +119,24 @@ int kthread_create( void *(*start_func)(), void *stack, uint stack_size){
   nkt = allockthread(p);
   // Allocate kthread
   if(nkt  == 0){
+    release(&nkt->tlock);
     return -1;
   }
+
+  if(stack == 0){
+    release(&nkt->tlock);
+    return -1;
+
+  }
+
+  if(stack_size > kSTACK_SIZE){
+    printf("im in\n");
+    release(&nkt->tlock);
+    return -1;
+
+  }
+
+
  
   nkt->trapframe->epc = (uint64)start_func;
   nkt->trapframe->sp = (uint64)stack + stack_size;
@@ -219,7 +235,7 @@ int kthread_join(int ktid, uint64 status){
   for(;;){
     
     acquire(&kt->tlock);
-    if(kt->tstate == TZOMBIE){
+    if(kt->tstate == TZOMBIE || mykthread()->tpid == ktid){
         if(status != 0 && copyout(p->pagetable, status, (char *)&kt->txstate,
                                   sizeof(kt->txstate)) < 0) {                    
             release(&kt->tlock);
